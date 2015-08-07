@@ -1,5 +1,11 @@
 const string endl = "\r\n";
 
+IMyAirVent airVent;
+IMyDoor midDoor;
+IMyDoor innerDoor;
+IMyLightingBlock passageLight;
+IMyTimerBlock timer;
+
 void Main(string argument)
 {
     Setup();
@@ -17,8 +23,11 @@ void Main(string argument)
         case "Leaved Inner Sensor":
             OnLeavedInnerSensor();
             break;
+        case "Check Air Vent Job":
+            CheckAirVentJob();
+            break;
         case "":
-            Debug_GetActions();
+            Debug_GetActions(timer);
             break;
         default:
             Write("Invalid sensor event :(");
@@ -26,16 +35,11 @@ void Main(string argument)
     }
 }
 
-IMyAirVent airVent;
-IMyDoor midDoor;
-IMyDoor innerDoor;
-IMyLightingBlock passageLight;
-
 void Setup()
 {
     airVent = GridTerminalSystem.GetBlockWithName("Te-toku Air Lock Vent") as IMyAirVent;
     if (airVent == null) {
-        Write("Vent Not Found :(");
+        Write("Air Vent Not Found :(");
         return;
     }
 
@@ -56,35 +60,87 @@ void Setup()
         Write("Light not found :(");
         return;
     }
+    
+    timer = GridTerminalSystem.GetBlockWithName("Te-toku Air Lock Timer") as IMyTimerBlock;
+    if (timer == null) {
+        Write("Timer not found :(");
+        return;
+    }
 
     Write("Setup OK :)");
 }
 
 void OnEnteredMidSensor()
 {
-
+    airVent.ApplyAction("Depressurize_On");
+    passageLight.ApplyAction("OnOff_Off");
+    WaitForAirVentJob();
 }
 
 void OnLeavedMidSensor()
 {
     midDoor.ApplyAction("Open_Off");
+    StopPollingAirVentJob();
 }
 
 void OnEnteredInnerSensor()
 {
-
+    airVent.ApplyAction("Depressurize_Off");
+    passageLight.ApplyAction("OnOff_On");
+    WaitForAirVentJob();
 }
 
 void OnLeavedInnerSensor()
 {
     innerDoor.ApplyAction("Open_Off");
+    StopPollingAirVentJob();
 }
 
-void Debug_GetActions()
+void WaitForAirVentJob()
+{
+    timer.ApplyAction("Start");
+}
+
+void StopPollingAirVentJob()
+{
+    timer.ApplyAction("Stop");
+}
+
+void CheckAirVentJob()
+{
+    if (innerDoor.OpenRatio > 0 || midDoor.OpenRatio > 0) {
+        // Do nothing when either door is not completely closed
+        Write("Waiting for Doors are completely closed.");
+        return;
+    }
+    
+    if ((!airVent.IsDepressurizing && airVent.GetOxygenLevel() < 1.0f)
+        || (airVent.IsDepressurizing && airVent.GetOxygenLevel() > 0.3f)) {
+        // Do nothing while Depressure/Pressure-ing
+        Write("Waiting for AirVent. Oxygen Level: " + Format(airVent.GetOxygenLevel()));
+        return;
+    }
+    
+    // Depressure/Pressure completed! Let's open the door.
+    if (airVent.IsDepressurizing) {
+        // Open no-oxygen door when passage is no-oxygen.
+        midDoor.ApplyAction("Open_On");
+    } else {
+        // Open full-oxygen door when passage is full-oxygen.
+        innerDoor.ApplyAction("Open_On");
+    }
+    
+    Write("Last Oxygen Level: " + Format(airVent.GetOxygenLevel()));
+
+    // AirVent job completed.
+    StopPollingAirVentJob();
+}
+
+void Debug_GetActions(IMyTerminalBlock target)
 {
     var text = "";
     var actionList = new List<ITerminalAction>();
-    innerDoor.GetActions(actionList);
+    target.GetActions(actionList);
     for (var i = 0; i < actionList.Count; i++) {
         text += actionList[i].Id + endl;
     }
