@@ -10,6 +10,7 @@ void Main(string argument)
 {
     Setup();
 
+    Write(argument);
     switch (argument) {
         case "Entered Mid Sensor":
             OnEnteredMidSensor();
@@ -115,7 +116,7 @@ void CheckAirVentJob()
     }
     
     if ((!airVent.IsDepressurizing && airVent.GetOxygenLevel() < 1.0f)
-        || (airVent.IsDepressurizing && airVent.GetOxygenLevel() > 0.3f)) {
+        || (airVent.IsDepressurizing && airVent.GetOxygenLevel() > 0.0f)) {
         // Do nothing while Depressure/Pressure-ing
         Write("Waiting for AirVent. Oxygen Level: " + Format(airVent.GetOxygenLevel()));
         return;
@@ -149,6 +150,10 @@ void Debug_GetActions(IMyTerminalBlock target)
 
 void Write(string text)
 {
+    var textPanel = GridTerminalSystem.GetBlockWithName("Te-toku Air Lock Display") as IMyTextPanel;
+    if (textPanel != null) {
+        textPanel.WritePublicText(text);
+    }
     Echo(text);
 }
 
