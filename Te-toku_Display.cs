@@ -1,6 +1,6 @@
 void Main(string argument)
 {
-    string text = "Okaeri! Te-toku!" + endl + endl;
+    string text = "Te-toku Hentai!" + endl + endl;
 
     text += GetRefineryUtilization();
     text += GetReactorVolume();
